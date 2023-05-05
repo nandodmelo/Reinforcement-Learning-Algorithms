@@ -87,7 +87,7 @@ class Agent:
         next_value = self.Critic.critic_predict(next_state)
 
         advt, target = self.get_gaes(rewards, done, np.squeeze(value), np.squeeze(next_value))
-
+        print('TARGET', np.shape(target))
         y_true = np.hstack([advt, probs, actions])
         
         # training Actor and Critic networks

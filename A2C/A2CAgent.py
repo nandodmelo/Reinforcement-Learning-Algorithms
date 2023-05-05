@@ -52,7 +52,7 @@ class REINFORCEagent:
 	
 	def discount_rewards(self, reward):
 		# Compute the gamma-discounted rewards over an episode
-
+		print('--------------',len(reward))
 		G_total = 0
 		G = np.zeros_like(reward)
 		for i in reversed(range(0, len(reward))):

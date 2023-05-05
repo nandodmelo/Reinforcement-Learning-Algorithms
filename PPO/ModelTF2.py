@@ -14,6 +14,49 @@ class ActorNetwork():
         X_input = Input(state_shape)
         self.action_space = action_space
         self.model = model
+
+
+
+        X = Dense(64, activation="tanh", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X_input)
+        X = Dense(64, activation="tanh", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X)
+        output = Dense(self.action_space, activation="softmax")(X)
+
+
+        
+
+        self.Actor = Model(inputs = X_input, outputs = output)
+        self.Actor.compile(optimizer=optimizer(lr=lr))
+        print(self.Actor.summary())
+        
+
+
+
+
+class CriticNetwork():
+
+    def __init__(self, state_shape, action_space, optimizer ,lr = 3e-4, lr_annealing= True, model = "MLP" ):
+        X_input = Input(state_shape)
+        self.action_space = action_space
+        self.model = model
+
+
+        X = Dense(64, activation="relu", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X_input)
+        X = Dense(64, activation="relu", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X)
+        output = Dense(1, activation=None)(X)
+
+
+        self.Critic = Model(inputs = X_input, outputs = output)
+        self.Critic.compile(optimizer=optimizer(lr=lr))
+        print(self.Critic.summary())
+
+
+
+class ActorNetworkContinuous():
+
+    def __init__(self, state_shape, action_space, optimizer,lr = 3e-4, lr_annealing= False,  model = "MLP" ):
+        X_input = Input(state_shape)
+        self.action_space = action_space
+        self.model = model
              
 
         
@@ -35,9 +78,13 @@ class ActorNetwork():
             output = Dense(self.action_space, activation="softmax")(X)
 
 
-        
+        mu = Dense(self.action_space, name="actor_output_mu")(output)
+        #mu = 2 * muactor_output_layer_continuous
+        # in addtion, we have a second output layer representing the sigma for each action
+        sigma = Dense(self.action_space, activation='softplus', name="actor_output_sigma")(output)
+        #mu_and_sigma = concatenate([mu, sigma])
 
-        self.Actor = Model(inputs = X_input, outputs = output)
+        self.Actor = Model(inputs = X_input, outputs = [mu, sigma])
         self.Actor.compile(loss=self.ppo_loss, optimizer=optimizer(lr=lr))
         print(self.Actor.summary())
 
@@ -75,7 +122,7 @@ class ActorNetwork():
 
 
 
-class CriticNetwork():
+class CriticNetworkContinuous():
 
     def __init__(self, state_shape, action_space, optimizer ,lr = 3e-4, lr_annealing= True, model = "MLP" ):
         X_input = Input(state_shape)
@@ -110,73 +157,3 @@ class CriticNetwork():
     
     def critic_predict(self, state):
         return self.Critic.predict(state, verbose=0)
-    
-
-
-class ActorNetworkContinuous():
-
-    def __init__(self, state_shape, action_space, optimizer,lr = 3e-4, lr_annealing= False,  model = "MLP" ):
-        X_input = Input(state_shape)
-        self.action_space = action_space
-        self.model = model
-             
-
-        
-
-              
-        if self.model=="CNN":
-            X = Conv1D(filters=64, kernel_size=6, padding="same", activation="tanh")(X_input)
-            X = MaxPooling1D(pool_size=2)(X)
-            X = Conv1D(filters=32, kernel_size=3, padding="same", activation="tanh")(X)
-            X = MaxPooling1D(pool_size=2)(X)
-            X = Flatten()(X)
-            X = Dense(64, activation="relu")(X)
-            output = Dense(self.action_space, activation="tanh")(X)
-
-        elif self.model=="MLP":
-            
-            X = Dense(64, activation="tanh", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X_input)
-            X = Dense(64, activation="tanh", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X)
-            #output = Dense(self.action_space, activation="softmax")(X)
-
-
-        mu = Dense(self.action_space, kernel_initializer = initializers.Orthogonal(gain=1), bias_initializer=initializers.Zeros(), activation=None,name="actor_output_mu")(X)
-        #mu = 2 * muactor_output_layer_continuous
-        # in addtion, we have a second output layer representing the sigma for each action
-        sigma = Dense(self.action_space, activation='softplus', name="actor_output_sigma")(X)
-        #mu_and_sigma = concatenate([mu, sigma])
-        mu_and_sigma = concatenate([mu, sigma])
-        self.Actor = Model(inputs = X_input, outputs = mu_and_sigma)
-        self.Actor.compile(optimizer=optimizer(lr=lr))
-        print(self.Actor.summary())
-
-
-
-class CriticNetworkContinuous():
-
-    def __init__(self, state_shape, action_space, optimizer ,lr = 3e-4, lr_annealing= True, model = "MLP" ):
-        X_input = Input(state_shape)
-        self.action_space = action_space
-        self.model = model
-        self.annealing  = lr_annealing
-
-        
-              
-        if self.model=="CNN":
-            X = Conv1D(filters=64, kernel_size=6, padding="same", activation="tanh")(X_input)
-            X = MaxPooling1D(pool_size=2)(X)
-            X = Conv1D(filters=32, kernel_size=3, padding="same", activation="tanh")(X)
-            X = MaxPooling1D(pool_size=2)(X)
-            X = Flatten()(X)
-            X = Dense(64, activation="relu")(X)
-            output = Dense(self.action_space, activation="linear")(X)
-
-        else:
-            
-            X = Dense(64, activation="tanh", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X_input)
-            X = Dense(64, activation="tanh", kernel_initializer = initializers.Orthogonal(gain=np.sqrt(2)), bias_initializer=initializers.Zeros())(X)
-            output = Dense(1, kernel_initializer = initializers.Orthogonal(gain=np.sqrt(1)), activation=None, bias_initializer=initializers.Zeros())(X)
-
-
-        self.Critic = Model(inputs = X_input, outputs = output)
-        self.Critic.compile(optimizer=optimizer(lr=lr))

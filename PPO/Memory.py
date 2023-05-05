@@ -26,7 +26,7 @@ class Memory:
 
 
         batches = [indices[i:i+self.batch_size] for i in batch_start]
-
+        
         return np.vstack(np.array(self.states)),\
             np.vstack(np.array(self.actions)),\
             np.vstack(np.array(self.probs)),\

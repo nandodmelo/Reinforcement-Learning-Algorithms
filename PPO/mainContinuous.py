@@ -4,6 +4,7 @@
 
 
 import gym
+import math
 import numpy as np
 from Utils import plot_learning_curve
 from Agent_continuos import Agent
@@ -12,7 +13,7 @@ import os
 import time
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 if __name__ == '__main__':
-    env = gym.make('BipedalWalker-v3')
+    env = gym.make('Pendulum-v1')
     N = 20
     batch_size = 64
     n_epochs = 4
@@ -41,30 +42,37 @@ if __name__ == '__main__':
         done = False
         score = 0
         reward_scl = []
+        t = 0
         while not done:
             observation = np.expand_dims(observation, axis=0)
             action, prob = agent.act(observation)
+            #print('Ac1',observation)
             #print('----------11', action)
             #env.render()
-            action_ = agent.action_limits(action, -1, 1)
-            #print('ACTION',i, action)
-            observation_, reward, done, info, _ = env.step(action_)
-
+            action_ = agent.action_limits(action, -2, 2)
+            
+            #print('ACTION',i, np.expand_dims(action_, axis=0))
+            observation_, reward, done, info, _ = env.step(np.expand_dims(action_, axis=0))
+            #print('Ac2',action_, action, reward)
             n_steps += 1
             score += reward
             #action_onehot = np.zeros(4)
             #action_onehot[action] = 1
             #reward_scl.append(reward)
             #reward = agent.reward_scaling(reward_scl)
+            #print(np.expand_dims(action_, axis=0))
             agent.store_transition(observation, action,
                                    prob, observation_, reward, done)
-            #print('AAAAAAAAaa12', _)
+            if np.isnan(np.array(reward))  == True:
+                exit()
             if n_steps % N == 0:
                 #print('ENTROU')
                 agent.replay()
             observation = observation_
             if done == True or info == True:
+                print('ENTROU', t)
                 done = True
+            t += 1
 
         
         

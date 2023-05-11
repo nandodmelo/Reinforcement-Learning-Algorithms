@@ -135,7 +135,7 @@ class Agent:
 					critic_value = self.Critic.Critic(states)
 					critic_value = tf.squeeze(critic_value, 1)
 					returns = tf.squeeze(advt[i], 1) + value[i]
-
+					#print('----',value[i],critic_value )
 					critic_loss = tf.math.reduce_mean(keras.losses.MSE(critic_value, returns))
 					#print(critic_loss, 'loss')
 					
@@ -187,11 +187,13 @@ class Agent:
 		sigma = mu_sigma[:, self.action_space:]
 		#print('shapo', np.shape(mu), np.shape(sigma))
 		probs =  tfp.distributions.Normal(mu, scale=sigma)
+		#$print('1',mu,'2', sigma,'3', probs,'4', probs.sample())
 		mu = probs.sample()
-		print('PROBS', probs, mu)
-		probs =  tfp.distributions.MultivariateNormalDiag(mu, scale_diag=sigma)
-		mu = probs.sample()
-		print('CAL', probs, np.shape(mu))
+		
+		#print('PROBS', probs, mu)
+		# probs =  tfp.distributions.MultivariateNormalDiag(mu, scale_diag=sigma)
+		# mu = probs.sample()
+		# print('CAL', np.shape(probs), np.shape(mu))
 		return mu, tf.reduce_sum(probs.log_prob(mu), axis=1, keepdims=True)
 
 	def store_transition(self, state, action, probs, vals, reward, done):

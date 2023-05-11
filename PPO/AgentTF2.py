@@ -92,55 +92,56 @@ class Agent:
 		next_value = self.Critic.Critic(next_state).numpy()
 
 		advt = self.get_gaes(rewards, done, np.squeeze(value), np.squeeze(next_value))
-		print('CRITICCC',np.shape(probs), np.shape(batches),  np.shape(state))
-		for i in batches:
-			with tf.GradientTape(persistent=True) as tape:
+		#print('CRITICCC',np.shape(probs), np.shape(batches),  np.shape(state))
+		for _ in range(0,self.epochs):
+			for i in batches:
+				with tf.GradientTape(persistent=True) as tape:
 
-				states = tf.convert_to_tensor(state[i], dtype=tf.float32)
-				prob = tf.convert_to_tensor(probs[i], dtype=tf.float32)
-				action = tf.convert_to_tensor(actions[i], dtype=tf.float32)
+					states = tf.convert_to_tensor(state[i], dtype=tf.float32)
+					prob = tf.convert_to_tensor(probs[i], dtype=tf.float32)
+					action = tf.convert_to_tensor(actions[i], dtype=tf.float32)
 
-				y_pred = self.Actor.Actor(states)
+					y_pred = self.Actor.Actor(states)
 
-				dist = tfp.distributions.Categorical(prob)
-				old_prob = dist.log_prob(action)
+					dist = tfp.distributions.Categorical(prob)
+					old_prob = dist.log_prob(action)
 
-				dist = tfp.distributions.Categorical(y_pred)
-				new_prob = dist.log_prob(action)
+					dist = tfp.distributions.Categorical(y_pred)
+					new_prob = dist.log_prob(action)
+					
+					ratio = tf.math.exp(new_prob - old_prob)
+					
+					p1 = ratio * advt[i]
+					p2 = tf.clip_by_value(ratio, 1 - self.LOSS_CLIPPING, 1 + self.LOSS_CLIPPING) * advt[i]
+
+					actor_loss = -tf.math.reduce_mean(tf.math.minimum(p1, p2))
+
+					entropy = -(y_pred * tf.math.log(y_pred + 1e-10))
+					entropy = self.ENTROPY_LOSS * K.mean(entropy)
+					
+					total_loss = actor_loss - entropy
+					##Critic
+					critic_value = self.Critic.Critic(states)
+					critic_value = tf.squeeze(critic_value, 1)
+					returns = tf.squeeze(advt[i], 1) + value[i]
+
+					critic_loss = keras.losses.MSE(critic_value, returns)
+					#print('actor', np.shape(total_loss), total_loss, 'Critic', np.shape(critic_loss))
+
+
+					
+
+				actor_params = self.Actor.Actor.trainable_variables
+				actor_grads = tape.gradient(total_loss, actor_params)
+
+				self.Actor.Actor.optimizer.apply_gradients(
+							zip(actor_grads, actor_params))
 				
-				ratio = tf.math.exp(new_prob - old_prob)
-				
-				p1 = ratio * advt[i]
-				p2 = tf.clip_by_value(ratio, 1 - self.LOSS_CLIPPING, 1 + self.LOSS_CLIPPING) * advt[i]
+				critic_params = self.Critic.Critic.trainable_variables
+				critic_grads = tape.gradient(critic_loss, critic_params)
 
-				actor_loss = -tf.math.reduce_mean(tf.math.minimum(p1, p2))
-
-				entropy = -(y_pred * tf.math.log(y_pred + 1e-10))
-				entropy = self.ENTROPY_LOSS * K.mean(entropy)
-				
-				total_loss = actor_loss - entropy
-				##Critic
-				critic_value = self.Critic.Critic(states)
-				critic_value = tf.squeeze(critic_value, 1)
-				returns = tf.squeeze(advt[i], 1) + value[i]
-
-				critic_loss = keras.losses.MSE(critic_value, returns)
-				print('actor', np.shape(total_loss), total_loss, 'Critic', np.shape(critic_loss))
-
-
-				
-
-			actor_params = self.Actor.Actor.trainable_variables
-			actor_grads = tape.gradient(total_loss, actor_params)
-
-			self.Actor.Actor.optimizer.apply_gradients(
-						zip(actor_grads, actor_params))
-			
-			critic_params = self.Critic.Critic.trainable_variables
-			critic_grads = tape.gradient(critic_loss, critic_params)
-
-			self.Critic.Critic.optimizer.apply_gradients(
-						zip(critic_grads, critic_params))	
+				self.Critic.Critic.optimizer.apply_gradients(
+							zip(critic_grads, critic_params))	
 
 		self.memory.clear_memory()
 

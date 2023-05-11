@@ -6,7 +6,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torch.distributions.normal import Normal
-from Memory import Memory
+# from Memory import Memory
 import gym
 import numpy as np
 import torch.optim as optim
@@ -27,7 +27,7 @@ np.random.seed(1)
 T.manual_seed(1)
 T.backends.cudnn.deterministic = True
 class PPO:
-    def __init__(self, env, gamma = 0.99, lambda_ = 0.95,Entropy_loss = 1e-3, PPO_clip = 0.2, epochs = 10, lr = 3e-4, batch_size = 100000):
+    def __init__(self, env, gamma = 0.99, lambda_ = 0.95,Entropy_loss = 0, PPO_clip = 0.2, epochs = 10, lr = 3e-4, batch_size = 100000):
         self.env = env
         self.gamma =  gamma
         self.PPO_clip = PPO_clip
@@ -113,7 +113,7 @@ class PPO:
         #print('action', np.shape(actions), 'returns', np.shape(returns), 'adv', np.shape(adv))
         #print('states', np.shape(states), 'nextstates', np.shape(next_states), 'probs', np.shape(probs))
         for _ in range(self.epochs):
-            np.random.shuffle(indexs)
+            #np.random.shuffle(indexs)
 
             for batch in range(0, self.batch_size, 64):
 
@@ -125,12 +125,13 @@ class PPO:
                 states_aux = states[ind]
                 value_aux = values[ind]
                 returns_aux = returns[ind]
-                adv_aux = adv[ind]  
+                adv_aux_ = adv[ind]  
                 _, new_prob, entropy, critic_value_ = self.act(states_aux, actions[ind])
                 #print('actions2', _)
                   
                 ratio = T.exp(new_prob - old_prob)
-
+                #print('ratio', actions[ind])
+                adv_aux = (adv_aux_ - adv_aux_.mean()) / (adv_aux_.std() + 1e-8)
                 p1 = -adv_aux * ratio
                 p2 = -adv_aux * T.clamp(ratio, 1- self.PPO_clip, 1 + self.PPO_clip)
                 #print('SHAPES', np.shape(p1), np.shape(p2))
@@ -147,12 +148,14 @@ class PPO:
                 
                 
             
+                #print('value',critic_value, value_aux)
+                critic_loss_unclipped = (critic_value - returns_aux) ** 2
+                #print('value',adv_aux)
+                critic_clipped = value_aux + T.clamp((critic_value - T.squeeze(value_aux)), - self.PPO_clip, self.PPO_clip)
                 
-                critic_clipped = value_aux + T.clamp((critic_value - T.squeeze(value_aux)), 1- self.PPO_clip, 1 + self.PPO_clip)
-                critic_loss_clipped = (critic_clipped - returns_aux) ** 2
                 
-                critic_loss_noclip = (critic_value - returns_aux)**2
-                critic_loss_max = T.max(critic_loss_noclip, critic_loss_clipped)
+                critic_loss_clipped = (critic_clipped - returns_aux)**2
+                critic_loss_max = T.max(critic_loss_unclipped, critic_loss_clipped)
                 critic_loss = 0.5 * critic_loss_max.mean()
                 #critic_loss = 0.5 * ((critic_value - returns_aux) ** 2).mean()
                 #print('LOSS',np.shape(critic_loss),np.shape(actor_loss), np.shape(entropy_loss) )
